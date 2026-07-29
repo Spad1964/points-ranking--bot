@@ -7,7 +7,7 @@ A Discord bot that manages a point-based rank progression system for Lore Actors
 - **Points tracking** — Post a structured message after each roleplay session. The bot parses it, credits all mentioned actors, and logs the breakdown by category (Length, Roleplay, Combat).
 - **Automatic promotion requests** — When an actor's total crosses a rank threshold, the bot posts a request in the promotions channel with Approve and Deny buttons. Approving updates the actor's Discord roles and database rank automatically.
 - **Actor management** — Commands to view profiles, point history, inactive actors, and bulk-manage records.
-- **Roblox group tools** — Optional integration to manage Roblox group membership alongside Discord roles.
+- **Roblox group tools** — Optional integration to manage Roblox group membership alongside Discord roles. 
   
 ## Setup
 

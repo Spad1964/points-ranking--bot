@@ -887,6 +887,7 @@ def split_lines_for_embed_fields(
 async def inactiveactors(
     interaction: discord.Interaction,
     days: int,
+    withLoreTeam: bool = False
 ) -> None:
     await interaction.response.defer(thinking=True, ephemeral=True)
 
@@ -914,8 +915,24 @@ async def inactiveactors(
         raise
 
     lines = []
+    
+    if not withLoreTeam:
+        guild = interaction.guild
+        if guild is None:
+            await interaction.followup.send("This command can only be used inside a server.", ephemeral=True)
+            return
+        
+        for actor in inactive_actors:
+            serverUser = guild.get_member(int(actor["discord_id"]))
+            if serverUser is None:
+                continue
+            
+            if has_lore_team_role(serverUser):
+                inactive_actors.remove(actor)
+        
 
     for actor in inactive_actors:
+        
         last_activity = actor["last_activity_at"]
         last_activity_text = (
             "No activity recorded"

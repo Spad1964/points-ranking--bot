@@ -1359,6 +1359,7 @@ async def refreshroles(interaction: discord.Interaction) -> None:
 
     for actor in actors:
         member = guild.get_member(int(actor["discord_id"]))
+        log.info("member: %s", member.display_name)
         if member is None:
             skipped += 1
             continue

@@ -887,7 +887,7 @@ def split_lines_for_embed_fields(
 async def inactiveactors(
     interaction: discord.Interaction,
     days: int,
-    withLoreTeam: bool = False
+    with_lore_team: bool = False
 ) -> None:
     await interaction.response.defer(thinking=True, ephemeral=True)
 
@@ -916,7 +916,7 @@ async def inactiveactors(
 
     lines = []
     
-    if not withLoreTeam:
+    if not with_lore_team:
         guild = interaction.guild
         if guild is None:
             await interaction.followup.send("This command can only be used inside a server.", ephemeral=True)

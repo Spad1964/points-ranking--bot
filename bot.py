@@ -916,20 +916,21 @@ async def inactiveactors(
 
     lines = []
     
-    if not with_lore_team:
-        guild = interaction.guild
-        if guild is None:
-            await interaction.followup.send("This command can only be used inside a server.", ephemeral=True)
-            return
-        
-        for actor in inactive_actors:
-            serverUser = guild.get_member(int(actor["discord_id"]))
-            if serverUser is None:
-                continue
-            
-            if has_lore_team_role(serverUser):
-                print("\nFound Lore Team: ", serverUser.display_name)
-                inactive_actors.remove(actor)
+    if not with_lore_team:                                                                                                                                                                                                                                                 
+        guild = interaction.guild                                                                                                                                                                                                                                          
+        if guild is None:                                                                                                                                                                                                                                                  
+            await interaction.followup.send("This command can only be used inside a server.", ephemeral=True)                                                                                                                                                              
+            return                                                                                                                                                                                                                                                         
+                                                                                                                                                                                                                                                                           
+        filtered_actors = []                                                                                                                                                                                                                                               
+        for actor in inactive_actors:                                                                                                                                                                                                                                      
+            server_user = guild.get_member(int(actor["discord_id"]))                                                                                                                                                                                                       
+            if server_user and has_lore_team_role(server_user):                                                                                                                                                                                                            
+                print("\nFound Lore Team: ", server_user.display_name)                                                                                                                                                                                                     
+                continue                                                                                                                                                                                                                                                   
+            filtered_actors.append(actor)                                                                                                                                                                                                                                  
+                                                                                                                                                                                                                                                                           
+        inactive_actors = filtered_actors 
         
 
     for actor in inactive_actors:

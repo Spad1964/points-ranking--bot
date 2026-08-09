@@ -928,6 +928,7 @@ async def inactiveactors(
                 continue
             
             if has_lore_team_role(serverUser):
+                print("\nFound Lore Team: ", serverUser.displayName)
                 inactive_actors.remove(actor)
         
 

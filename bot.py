@@ -16,6 +16,7 @@ from config.roles import (
 from database.db import (
     add_points_to_actors,
     adjust_points_and_get_actor,
+    adjust_points_for_all_actors,
     approve_promotion_request,
     close_db,
     create_promotion_request,

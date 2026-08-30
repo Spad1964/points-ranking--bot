@@ -523,6 +523,56 @@ async def adjust_points_and_get_actor(
             log.error("adjust_points_and_get_actor: transaction rolled back", exc_info=True)
             raise
 
+async def adjust_points_for_all_actors(
+    amount: int,
+    reason: str,
+    adjusted_by: int,
+) -> list[aiosqlite.Row]:
+    """Adjust every existing actor and record each change in one transaction."""
+    db = await get_db()
+
+    async with _db_write_lock:
+        try:
+            await db.execute("BEGIN")
+
+            cursor = await db.execute("SELECT discord_id FROM actors")
+            actor_ids = [int(row["discord_id"]) for row in await cursor.fetchall()]
+
+            if not actor_ids:
+                await db.commit()
+                return []
+
+            await db.execute(
+                "UPDATE actors SET points = points + ?",
+                (int(amount),),
+            )
+            await db.executemany(
+                """
+                INSERT INTO point_adjustments (
+                    discord_id, amount, reason, adjusted_by
+                )
+                VALUES (?, ?, ?, ?)
+                """,
+                [
+                    (discord_id, int(amount), reason, int(adjusted_by))
+                    for discord_id in actor_ids
+                ],
+            )
+
+            cursor = await db.execute(
+                """
+                SELECT discord_id, points, current_rank
+                FROM actors
+                ORDER BY points DESC
+                """
+            )
+            actors = await cursor.fetchall()
+            await db.commit()
+            return actors
+        except Exception:
+            await db.rollback()
+            log.error("adjust_points_for_all_actors: transaction rolled back", exc_info=True)
+            raise
 
 async def get_point_logs(
     discord_id: int,

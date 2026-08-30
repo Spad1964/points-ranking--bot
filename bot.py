@@ -582,7 +582,7 @@ async def profile(
 @bot.tree.command(name="adjustpoints", description="Manually adjust actor points")
 async def adjustpoints(
     interaction: discord.Interaction,
-    actor: discord.Member,
+    actor: str,
     amount: int,
     reason: str,
 ) -> None:
@@ -601,8 +601,91 @@ async def adjustpoints(
         )
         return
 
+    if actor.strip().casefold() == "all":
+        await interaction.response.defer()
+        actors = await adjust_points_for_all_actors(
+            amount=amount,
+            reason=reason,
+            adjusted_by=interaction.user.id,
+        )
+
+        if not actors:
+            await interaction.followup.send("There are no actors in the database.")
+            return
+
+        promotion_count = 0
+        if interaction.guild is not None:
+            for actor_data in actors:
+                requested_rank = should_request_promotion(
+                    current_rank_name=actor_data["current_rank"],
+                    points=actor_data["points"],
+                )
+                if requested_rank is not None and await send_promotion_request(
+                    guild=interaction.guild,
+                    actor_id=actor_data["discord_id"],
+                    requested_rank=requested_rank,
+                    points=actor_data["points"],
+                ):
+                    promotion_count += 1
+
+        log.info(
+            "Points adjusted for all actors: count=%d amount=%+d reason=%r adjusted_by=%s (%d)",
+            len(actors),
+            amount,
+            reason,
+            interaction.user,
+            interaction.user.id,
+        )
+        promotion_text = (
+            f"\nPromotion requests created: {promotion_count}"
+            if promotion_count
+            else ""
+        )
+        await interaction.followup.send(
+            f"Points adjusted successfully for all {len(actors)} actors.\n"
+            f"Adjustment: {amount:+d}\n"
+            f"Reason: {reason}"
+            f"{promotion_text}"
+        )
+        return
+
+    if interaction.guild is None:
+        await interaction.response.send_message(
+            "This command can only be used in a server.",
+            ephemeral=True,
+        )
+        return
+
+    actor_text = actor.strip()
+    actor_id_text = actor_text.removeprefix("<@").removeprefix("!").removesuffix(">")
+    resolved_actor = None
+    if actor_id_text.isdigit():
+        resolved_actor = interaction.guild.get_member(int(actor_id_text))
+        if resolved_actor is None:
+            try:
+                resolved_actor = await interaction.guild.fetch_member(int(actor_id_text))
+            except discord.NotFound:
+                pass
+    else:
+        actor_name = actor_text.casefold()
+        matches = [
+            member
+            for member in interaction.guild.members
+            if member.name.casefold() == actor_name
+            or member.display_name.casefold() == actor_name
+        ]
+        if len(matches) == 1:
+            resolved_actor = matches[0]
+
+    if resolved_actor is None:
+        await interaction.response.send_message(
+            "Actor not found. Enter an exact username, display name, mention, user ID, or `all`.",
+            ephemeral=True,
+        )
+        return
+
     actor_data = await adjust_points_and_get_actor(
-        discord_id=actor.id,
+        discord_id=resolved_actor.id,
         amount=amount,
         reason=reason,
         adjusted_by=interaction.user.id,
@@ -625,7 +708,7 @@ async def adjustpoints(
     if requested_rank is not None and interaction.guild is not None:
         created = await send_promotion_request(
             guild=interaction.guild,
-            actor_id=actor.id,
+            actor_id=resolved_actor.id,
             requested_rank=requested_rank,
             points=actor_data["points"],
         )
@@ -633,12 +716,12 @@ async def adjustpoints(
         if created:
             promotion_text = (
                 f"\n\nPromotion request created for "
-                f"{actor.mention} → {requested_rank['role_name']}"
+                f"{resolved_actor.mention} → {requested_rank['role_name']}"
             )
 
     log.info(
         "Points adjusted: actor=%d amount=%+d new_total=%d reason=%r adjusted_by=%s (%d)",
-        actor.id,
+        resolved_actor.id,
         amount,
         actor_data["points"],
         reason,
@@ -648,13 +731,12 @@ async def adjustpoints(
 
     await interaction.response.send_message(
         f"Points adjusted successfully.\n"
-        f"Actor: {actor.mention}\n"
+        f"Actor: {resolved_actor.mention}\n"
         f"Adjustment: {amount:+d}\n"
         f"New Total: {actor_data['points']}\n"
         f"Reason: {reason}"
         f"{promotion_text}",
     )
-
 
 @bot.tree.command(name="pendingpromotions", description="List all pending actor promotion requests")
 async def pendingpromotions(interaction: discord.Interaction) -> None:

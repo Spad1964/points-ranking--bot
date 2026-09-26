@@ -38,7 +38,7 @@ from database.db import (
 )
 from services.permissions import can_approve_promotion, has_lore_team_role, is_high_rank, is_senior
 from services.points_parser import parse_points_message
-from services.ranks import get_next_rank, get_rank_by_points, get_rank_by_name, should_request_promotion
+from services.ranks import get_next_rank, get_rank_by_points, get_rank_by_name, get_rank_by_points_and_qualifications, has_rank_qualifications, should_request_promotion
 from services.roblox import accept_join_request, get_group_members, get_group_roles, get_members_with_role, kick_group_member, lookup_users_by_usernames, remove_member_rank
 
 logging.basicConfig(
@@ -332,6 +332,13 @@ async def send_promotion_request(
     points: int,
 ) -> bool:
     """Posts a promotion request embed with buttons. Returns False if the channel is missing or a request already exists."""
+    actor = guild.get_member(int(actor_id))
+    if actor is None:
+        return False
+
+    if not has_rank_qualifications(requested_rank, {role.id for role in actor.roles}):
+        return False
+
     promotion_channel = get_channel_by_id_or_name(
         guild=guild,
         channel_id=PROMOTION_REQUESTS_CHANNEL_ID,
@@ -463,9 +470,14 @@ async def on_message(message: discord.Message) -> None:
         if actor_data is None:
             continue
 
+        actor = message.guild.get_member(int(user_id))
+        if actor is None:
+            continue
+
         requested_rank = should_request_promotion(
             current_rank_name=actor_data["current_rank"],
             points=actor_data["points"],
+            actor_role_ids={role.id for role in actor.roles},
         )
 
         if requested_rank is None:
@@ -617,9 +629,14 @@ async def adjustpoints(
         promotion_count = 0
         if interaction.guild is not None:
             for actor_data in actors:
+                actor = interaction.guild.get_member(int(actor_data["discord_id"]))
+                if actor is None:
+                    continue
+
                 requested_rank = should_request_promotion(
                     current_rank_name=actor_data["current_rank"],
                     points=actor_data["points"],
+                    actor_role_ids={role.id for role in actor.roles},
                 )
                 if requested_rank is not None and await send_promotion_request(
                     guild=interaction.guild,
@@ -702,6 +719,7 @@ async def adjustpoints(
     requested_rank = should_request_promotion(
         current_rank_name=actor_data["current_rank"],
         points=actor_data["points"],
+        actor_role_ids={role.id for role in resolved_actor.roles},
     )
 
     promotion_text = ""
@@ -1446,7 +1464,10 @@ async def refreshroles(interaction: discord.Interaction) -> None:
             skipped += 1
             continue
 
-        correct_rank = get_rank_by_points(int(actor["points"]))
+        correct_rank = get_rank_by_points_and_qualifications(
+            int(actor["points"]),
+            {role.id for role in member.roles},
+        )
         current_rank_data = get_rank_by_name(actor["current_rank"])
 
         if current_rank_data is not None and correct_rank["points_required"] <= current_rank_data["points_required"]:

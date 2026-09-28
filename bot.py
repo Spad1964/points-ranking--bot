@@ -232,6 +232,21 @@ class PromotionRequestView(discord.ui.View):
             )
             return
 
+        actor_data = await get_actor(actor.id)
+        requested_rank_data = get_rank_by_name(promotion_request["requested_rank"])
+
+        if (
+            actor_data is None
+            or requested_rank_data is None
+            or actor_data["points"] < requested_rank_data["points_required"]
+            or not has_rank_qualifications(requested_rank_data, {role.id for role in actor.roles})
+        ):
+            await interaction.followup.send(
+                "This actor no longer qualifies for this promotion.",
+                ephemeral=True,
+            )
+            return
+
         requested_role = discord.utils.get(
             guild.roles,
             name=promotion_request["requested_role_name"],
